@@ -97,3 +97,5 @@ Le serveur récursif ne répond que sur l'interface qui est dans le réseau 192.
 ;; connection timed out; no servers could be reached
 ```
 Le serveur ne répond pas sur l'interface 192.168.56.21.
+
+L'accès à MySQL est sécurisé par le fait que le service ne soit accessible que sur l'interface 127.0.0.1 sur le port 3306.
