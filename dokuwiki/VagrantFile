@@ -14,25 +14,38 @@ Vagrant.configure("2") do |config|
   # boxes at https://vagrantcloud.com/search.
   config.vm.box = "centos/7"
   config.vm.define "master" do |master|
+    master.vm.provision "file", source: "./dokuwiki.conf", destination: "dokuwiki.conf"
+    master.vm.provision "shell", path: "provision_both.sh"
     master.vm.network "private_network", ip: "192.168.10.100"
     master.vm.hostname = "master-dokuwiki"
-    master.vm.provision "file", source: "./master_rsa", destination: "~/.ssh/id_rsa"
-    master.vm.provision "file", source: "./master_rsa.pub", destination: "~/.ssh/id_rsa.pub"
+    master.vm.provision "file", source: "./master_rsa", destination: "id_rsa"
     master.vm.provision "shell", inline: <<-SHELL
-      cronjob='5 * * * * root "rsync -e "ssh -i /home/vagrant/.ssh/id_rsa.pub" 192.168.10.101:/var/www/dokuwiki/data /var/www/dokuwiki/data"'
-      sudo echo $cronjob >> /etc/crontab
+      sudo mv id_rsa /home/syncdokuwiki/.ssh/id_rsa
+      sudo chown -R $(cat /etc/passwd | grep syncdokuwiki | cut -d ':' -f 3):$(cat /etc/passwd | grep syncdokuwiki | cut -d ':' -f 4) /home/syncdokuwiki/.ssh
+      sudo chmod -R 600 /home/syncdokuwiki/.ssh/*
+      echo "*/5 * * * * rsync --progress -avz -e 'ssh -o StrictHostKeyChecking=no -i /home/syncdokuwiki/.ssh/id_rsa' /var/www/dokuwiki/ syncdokuwiki@192.168.10.101:/var/www/dokuwiki/" | sudo -u syncdokuwiki crontab
       sudo systemctl restart crond
     SHELL
   end
   config.vm.define "slave" do |slave|
+    slave.vm.provision "file", source: "./dokuwiki.conf", destination: "dokuwiki.conf"
+    slave.vm.provision "shell", path: "provision_both.sh"
     slave.vm.network "private_network", ip: "192.168.10.101"
     slave.vm.hostname = "slave-dokuwiki"
     slave.vm.provision "file", source: "./master_rsa.pub", destination: "~/.ssh/master_rsa.pub"
     slave.vm.provision "shell", inline: <<-SHELL
-      cat /home/vagrant/.ssh/master_rsa.pub >> /home/vagrant/.ssh/authorized_keys
+      sudo cat /home/vagrant/.ssh/master_rsa.pub > /home/syncdokuwiki/.ssh/authorized_keys
+      sudo chown -R $(cat /etc/passwd | grep syncdokuwiki | cut -d ':' -f 3):$(cat /etc/passwd | grep syncdokuwiki | cut -d ':' -f 4) /home/syncdokuwiki/.ssh
+      sudo chmod 600 -R /home/syncdokuwiki/.ssh/*
     SHELL
   end
   
+  config.vm.define "nginx" do |reverse|
+    reverse.vm.provision "file", source: "./wiki.conf", destination: "wiki.conf"
+    reverse.vm.provision "shell", path: "provision_nginx.sh"
+    reverse.vm.network "private_network", ip: "192.168.10.200"
+    reverse.vm.hostname = "reverse-nginx"
+  end
   # Disable automatic box update checking. If you disable this, then
   # boxes will only be checked for updates when the user runs
   # `vagrant box outdated`. This is not recommended.
@@ -81,6 +94,4 @@ Vagrant.configure("2") do |config|
   # Enable provisioning with a shell script. Additional provisioners such as
   # Puppet, Chef, Ansible, Salt, and Docker are also available. Please see the
   # documentation for more information about their specific syntax and use.
-  config.vm.provision "file", source: "./dokuwiki.conf", destination: "dokuwiki.conf"
-  config.vm.provision "shell", path: "provision_both.sh"
 end

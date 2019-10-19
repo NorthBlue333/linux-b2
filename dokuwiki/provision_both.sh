@@ -16,7 +16,12 @@ sudo mkdir /etc/httpd/sites-available
 sudo mv dokuwiki.conf /etc/httpd/sites-available/dokuwiki.conf
 sudo ln -s /etc/httpd/sites-available /etc/httpd/sites-enabled
 sudo chown -R $(cat /etc/passwd | grep apache | cut -d ':' -f 3):$(cat /etc/passwd | grep apache | cut -d ':' -f 4) /etc/httpd/sites-available
-sudo chown -R $(cat /etc/passwd | grep apache | cut -d ':' -f 3):$(cat /etc/passwd | grep apache | cut -d ':' -f 4) /var/www/*
+sudo chown -R $(cat /etc/passwd | grep apache | cut -d ':' -f 3):$(cat /etc/passwd | grep apache | cut -d ':' -f 4) /var/www/
+sudo find /var/www/* -type d -exec chmod 770 {} +
+sudo find /var/www/* -type f -exec chmod 660 {} +
 sudo echo "IncludeOptional sites-enabled/*.conf" >> /etc/httpd/conf/httpd.conf
 sudo semanage permissive -a httpd_t
 sudo systemctl enable httpd --now
+sudo useradd syncdokuwiki --create-home
+sudo mkdir /home/syncdokuwiki/.ssh
+sudo usermod -aG apache syncdokuwiki
